@@ -1,12 +1,10 @@
-use minigrep::{search, search_case_insensitive};
+use minigrep::{Config, highlight_matches};
 use std::env;
 use std::error::Error;
 use std::fs::File;
 use std::io::{self, BufRead, BufReader};
 use std::process;
 
-const RED: &str = "\x1b[31m";
-const RESET: &str = "\x1b[0m";
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -39,20 +37,16 @@ fn get_reader(filename: Option<&String>) -> Box<dyn BufRead> {
 }
 
 fn run(config: Config) -> Result<(), Box<dyn Error>> {
-    // 1. 获取读取器（不管是文件还是管道，现在对我们来说都是 `reader`）
     let reader = get_reader(config.file_path.as_ref());
-    let query = config.query;
 
     let query_to_check = if config.ignore_case {
-        query.to_lowercase()
+        config.query.to_lowercase()
     } else {
-        query
+        config.query.clone()
     };
 
-    // 2. 逐行读取并搜索
-    // 这里我们直接在流上操作，这比 read_to_string 更节省内存！
     for line_result in reader.lines() {
-        let line = line_result?; // 处理可能的 I/O 错误
+        let line = line_result?; 
 
         let line_to_check = if config.ignore_case {
             line.to_lowercase()
@@ -60,40 +54,12 @@ fn run(config: Config) -> Result<(), Box<dyn Error>> {
             line.clone()
         };
 
-        // 调用你的搜索逻辑 (注意：如果你的 search 函数还是接收整个大字符串，可能需要改写成接收单行)
         if line_to_check.contains(&query_to_check) {
-            println!("{}", line);
+            println!("{}", highlight_matches(&line, &line_to_check, &query_to_check));
         }
     }
 
     Ok(())
 }
 
-struct Config {
-    query: String,
-    file_path: Option<String>,
-    pub ignore_case: bool,
-}
 
-impl Config {
-    pub fn build(mut args: impl Iterator<Item = String>) -> Result<Config, &'static str> {
-        args.next(); // 跳过程序名
-
-        let query = match args.next() {
-            Some(arg) => arg,
-            None => return Err("Didn't get a query string"),
-        };
-
-        // 尝试获取文件名，如果没有，那就是 None (代表要读 stdin)
-        let file_path = args.next();
-
-        // ... 环境变量处理 ignore_case ...
-        let ignore_case = std::env::var("IGNORE_CASE").is_ok();
-
-        Ok(Config {
-            query,
-            file_path,
-            ignore_case,
-        })
-    }
-}
