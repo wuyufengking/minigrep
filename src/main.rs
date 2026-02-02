@@ -5,6 +5,9 @@ use std::fs::File;
 use std::io::{self, BufRead, BufReader};
 use std::process;
 
+const RED: &str = "\x1b[31m";
+const RESET: &str = "\x1b[0m";
+
 fn main() {
     let args: Vec<String> = env::args().collect();
     let config = Config::build(args.into_iter()).unwrap_or_else(|err| {
@@ -38,23 +41,27 @@ fn get_reader(filename: Option<&String>) -> Box<dyn BufRead> {
 fn run(config: Config) -> Result<(), Box<dyn Error>> {
     // 1. 获取读取器（不管是文件还是管道，现在对我们来说都是 `reader`）
     let reader = get_reader(config.file_path.as_ref());
-    let mut query = config.query;
+    let query = config.query;
 
-    if config.ignore_case {
-        query = query.to_lowercase();
-    }
+    let query_to_check = if config.ignore_case {
+        query.to_lowercase()
+    } else {
+        query
+    };
 
     // 2. 逐行读取并搜索
     // 这里我们直接在流上操作，这比 read_to_string 更节省内存！
     for line_result in reader.lines() {
-        let mut line = line_result?; // 处理可能的 I/O 错误
+        let line = line_result?; // 处理可能的 I/O 错误
 
-        if config.ignore_case {
-            line = line.to_lowercase();
-        }
+        let line_to_check = if config.ignore_case {
+            line.to_lowercase()
+        } else{
+            line.clone()
+        };
 
         // 调用你的搜索逻辑 (注意：如果你的 search 函数还是接收整个大字符串，可能需要改写成接收单行)
-        if line.contains(&query) {
+        if line_to_check.contains(&query_to_check) {
             println!("{}", line);
         }
     }
