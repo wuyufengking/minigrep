@@ -1,10 +1,10 @@
 use minigrep::{Config, highlight_matches};
+use std::borrow::Cow;
 use std::env;
 use std::error::Error;
 use std::fs::File;
 use std::io::{self, BufRead, BufReader};
 use std::process;
-
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -39,27 +39,30 @@ fn get_reader(filename: Option<&String>) -> Box<dyn BufRead> {
 fn run(config: Config) -> Result<(), Box<dyn Error>> {
     let reader = get_reader(config.file_path.as_ref());
 
-    let query_to_check = if config.ignore_case {
-        config.query.to_lowercase()
+    // 使用 Cow 避免不必要的 clone
+    let query_to_check: Cow<str> = if config.ignore_case {
+        Cow::Owned(config.query.to_lowercase())
     } else {
-        config.query.clone()
+        Cow::Borrowed(&config.query)
     };
 
     for line_result in reader.lines() {
-        let line = line_result?; 
+        let line = line_result?;
 
-        let line_to_check = if config.ignore_case {
-            line.to_lowercase()
-        } else{
-            line.clone()
+        // 使用 Cow 避免不必要的 clone
+        let line_to_check: Cow<str> = if config.ignore_case {
+            Cow::Owned(line.to_lowercase())
+        } else {
+            Cow::Borrowed(&line)
         };
 
-        if line_to_check.contains(&query_to_check) {
-            println!("{}", highlight_matches(&line, &line_to_check, &query_to_check));
+        if line_to_check.contains(query_to_check.as_ref()) {
+            println!(
+                "{}",
+                highlight_matches(&line, &line_to_check, &query_to_check)
+            );
         }
     }
 
     Ok(())
 }
-
-

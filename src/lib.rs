@@ -30,35 +30,25 @@ impl Config {
     }
 }
 
-
-pub fn search<'a> (query: &str, contents: &'a str) -> Vec<&'a str> {
-    let mut results = Vec::new();
-
-    for line in contents.lines() {
-        if line.contains(query) {
-            results.push(line);
-        }
-    }
-
-    results
+pub fn search<'a>(query: &'a str, contents: &'a str) -> impl Iterator<Item = &'a str> {
+    contents.lines().filter(move |line| line.contains(query))
 }
 
-pub fn search_case_insensitive<'a>(query: &str, contents: &'a str) -> Vec<&'a str> {
-    let query = query.to_lowercase();
-    let mut results = Vec::new();
-
-    for line in contents.lines() {
-        if line.to_lowercase().contains(&query) {
-            results.push(line);
-        }
-    }
-
-    results
+pub fn search_case_insensitive<'a>(
+    query: &'a str,
+    contents: &'a str,
+) -> impl Iterator<Item = &'a str> {
+    let query_lower = query.to_lowercase();
+    contents
+        .lines()
+        .filter(move |line| line.to_lowercase().contains(&query_lower))
 }
 
 pub fn highlight_matches(line: &str, line_to_check: &str, query_to_check: &str) -> String {
-    let mut result = String::new();
     let len = query_to_check.len();
+    let escape_len = RED.len() + RESET.len();
+    // 预分配：假设有 1 个匹配的容量
+    let mut result = String::with_capacity(line.len() + escape_len);
     let mut last_index = 0;
 
     for (start_index, _) in line_to_check.match_indices(&query_to_check) {
@@ -74,7 +64,6 @@ pub fn highlight_matches(line: &str, line_to_check: &str, query_to_check: &str) 
     result
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -87,7 +76,10 @@ Rust:
 safe, fast, productive.
 Pick three.";
 
-        assert_eq!(vec!["safe, fast, productive."], search(query, contents));
+        assert_eq!(
+            vec!["safe, fast, productive."],
+            search(query, contents).collect::<Vec<_>>()
+        );
     }
 
     #[test]
@@ -101,7 +93,7 @@ Trust me.";
 
         assert_eq!(
             vec!["Rust:", "Trust me."],
-            search_case_insensitive(query, contents)
+            search_case_insensitive(query, contents).collect::<Vec<_>>()
         );
     }
 }
